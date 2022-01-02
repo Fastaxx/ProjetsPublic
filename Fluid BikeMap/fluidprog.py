@@ -12,6 +12,8 @@ import pandas as pd
 import gpx_parser
 import gpxpy 
 import gpxpy.gpx 
+import matplotlib as plt
+import numpy as np
 
 R = 6371000
 def distancehaversin(c1, c2):
@@ -58,6 +60,28 @@ def liregpx(fichier):
     return tab
             
             
-            
-            
+def floatRgb(mag, cmin, cmax):
+    """ https://www.oreilly.com/library/view/python-cookbook/0596001673/ch09s11.html
+    """
+    try:
+        x = float(mag - cmin) / (cmax - cmin)
+    except ZeroDivisionError:
+        x = 0.5  # cmax == cmin
+    blue = min((max((4 * (0.75 - x), 0.0)), 1.0))
+    red = min((max((4 * (x - 0.25), 0.0)), 1.0))
+    green = min((max((4 * math.fabs(x - 0.5) - 1.0, 0.0)), 1.0))
+    return red, green, blue
+
+
+def rgb(mag, cmin, cmax):
+    """ Return a tuple of integers, as used in AWT/Java plots. """
+    red, green, blue = floatRgb(mag, cmin, cmax)
+    return int(red * 255), int(green * 255), int(blue * 255)
+
+
+def strRgb(mag, cmin, cmax):
+    """ Return a hex string, as used in Tk plots. """
+    return "#%02x%02x%02x" % rgb(mag, cmin, cmax)
+
+
             
