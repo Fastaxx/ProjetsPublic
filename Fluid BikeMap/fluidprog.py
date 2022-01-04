@@ -16,7 +16,7 @@ import matplotlib as plt
 import numpy as np
 
 R = 6371000
-def distancehaversin(c1, c2):
+def haversine(c1, c2):
     "c1= (lat1, long1)"
     lat1, lon1 = c1
     lat2, lon2 = c2
@@ -31,57 +31,74 @@ def distancehaversin(c1, c2):
 
 fi = '/Users/Louis/GitHub/ProjetsPublic/Fluid BikeMap/exemple-de-trace-gps.gpx'
 
-def liregpx(fichier):
-    " Lecture et Vitesse fichier gpx"
-    with open(fichier, "r") as fichiergpx:
-        gpx = gpx_parser.parse(fichiergpx)
-        
-    vitesse = []
+
+from collections import namedtuple
+
+GpxPoint = namedtuple(
+    "GpxPoint", ["time", "distance", "tot_dist", "speed", "coordinates"]
+)
+
+
+def liregpx(file_name):
+    with open(file_name, "r") as gpx_file:
+        gpx = gpx_parser.parse(gpx_file)
+
+    tab = []
+
     for track in gpx:
         for segment in track:
-            point_precedent = None
-            t=0
-            distance_totale = 0
+            previous_point = None
+            t = 0
+            total_distance = 0
             for point in segment:
-                if point_precedent is not None:
-                    distance = distancehaversin((point_precedent.latitude, point_precedent.longitude),(point.latitude, point.longitude))
-                    det = point_precedent.time_difference(point)
-                    if det==0:
+                if previous_point is not None:
+                    distance = haversine(
+                        (previous_point.latitude, previous_point.longitude),
+                        (point.latitude, point.longitude),
+                    )
+                    delta_time = previous_point.time_difference(point)
+                    if delta_time == 0:
                         continue
-                    t+=det
-                    distance_totale+=distance
-                    
-                    vit = distance/det * 3.6
-                    vitesse.append((t, distance, distance_totale, vit))
-                point_precedent = point
-    tab = pd.DataFrame(vitesse)
-    tab.columns = ["temps", "distance_segment", "distance", "vitesse"]
-    
+                    t += delta_time
+                    total_distance += distance
+
+                    speed = distance / delta_time * 3600 / 1000
+                    tab.append(
+                        GpxPoint(
+                            t,
+                            distance,
+                            total_distance,
+                            speed,
+                            (point.latitude, point.longitude),
+                        )
+                    )
+                previous_point = point
+
     return tab
+
+fi2= liregpx(fi)
+vitesse_min= 5
+
+def score(points):
+    a= len([i for i in points if i[3]<vitesse_min])
+    return a/len(points)*100
+
+def creersegment(points):
+    seg_av=0
+    segments_pts =[]
+    segments = []
+    for point in points:
+        total_distance = point[2]
+        seg = total_distance/100
+        if seg> seg_av:
+            segments.append((seg, score(points), segments_pts))
+            segments_pts=[point]
+            seg_av=seg
+        else:
+            segments_pts.append(point)
             
-            
-def floatRgb(mag, cmin, cmax):
-    """ https://www.oreilly.com/library/view/python-cookbook/0596001673/ch09s11.html
-    """
-    try:
-        x = float(mag - cmin) / (cmax - cmin)
-    except ZeroDivisionError:
-        x = 0.5  # cmax == cmin
-    blue = min((max((4 * (0.75 - x), 0.0)), 1.0))
-    red = min((max((4 * (x - 0.25), 0.0)), 1.0))
-    green = min((max((4 * math.fabs(x - 0.5) - 1.0, 0.0)), 1.0))
-    return red, green, blue
+    return segments
+    
+    
+    
 
-
-def rgb(mag, cmin, cmax):
-    """ Return a tuple of integers, as used in AWT/Java plots. """
-    red, green, blue = floatRgb(mag, cmin, cmax)
-    return int(red * 255), int(green * 255), int(blue * 255)
-
-
-def strRgb(mag, cmin, cmax):
-    """ Return a hex string, as used in Tk plots. """
-    return "#%02x%02x%02x" % rgb(mag, cmin, cmax)
-
-
-            
